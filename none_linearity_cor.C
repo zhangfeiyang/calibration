@@ -48,7 +48,10 @@ double get_ratio(double *X,double *p){
 };
 
 
-void none_linearity_cor3(){
+int main(int argv,char **argc){
+	
+	int seed = atoi(argc[1]);
+	gRandom->SetSeed(seed);	
 
     TFile *file_K40   = new TFile("K40_pdf.root","read");
     TFile *file_n_H   = new TFile("n_H_pdf.root","read");
@@ -91,6 +94,13 @@ void none_linearity_cor3(){
 	ifstream fine("/home/zhangfy/nl_target/calibration/uncertainty");
 	double bias[n],ebias[n];
 
+	TFile *data_file = new TFile((Form("results/data_%i.root",seed)),"recreate");
+	TTree *t_data = new TTree("t","");
+	double pars[5];
+	t_data->Branch("pars",pars,"pars[5]/D");
+	t_data->Branch("r",r,"r[8]/D");
+	t_data->Branch("er",er,"er[8]/D");
+
 	for(int i=0;i<n;i++){
 			fin>>energy[i]>>pe[i]>>epe[i]>>sigma[i]>>esigma[i];
 			Erec[i] = pe[i]/scale;	
@@ -107,39 +117,53 @@ void none_linearity_cor3(){
 			er[i] = TMath::Abs(r[i]*ebias[i]/100.0); 
 			cout<<r[i]<<"\t"<<er[i] <<endl;
 	}
+	
+	TCanvas *c1 = new TCanvas();
+	
 	TGraphErrors *T1 = new TGraphErrors(n,energy,r,0,er);
-	T1->SetMarkerStyle(20);
+    T1->SetMarkerStyle(20);
     T1->SetMarkerSize(0.8);
-	T1->SetLineWidth(2);
-	T1->SetLineColor(kBlack);
-	T1->SetMarkerColor(kBlack);
-	T1->Draw("Ap");
+    T1->SetLineWidth(2);
+    T1->SetLineColor(kBlack);
+    T1->SetMarkerColor(kBlack);
+    T1->Draw("Ap");
 
-	TF1 *f1 = new TF1("f1",get_ratio,0,8,5);
+	TF1 *f1 = new TF1("f1",get_ratio,0,7,5);
+	//f1->SetParameters(1.05,0.002,0.11,1.5);
+	//f1->SetParameters(1.043762,0.005738488,0.123178,2.46286);
+	//f1->SetParameters(1.05376,0.00277669,0.166229,3.00274);
 	f1->SetParameters(1.05412,0.0069017,0.00938879,0.170967,2.95026);
-	T1->Fit("f1","0","",0,8);
-	ofstream fout("result");
-	double *a = f1->GetParameters();
-	fout<<a[0]<<"\t"<<a[1]<<"\t"<<a[2]<<"\t"<<a[3]<<"\t"<<a[4]<<"\n";
+	T1->Fit("f1","","",0,8);
+	double* tmp_pars = f1->GetParameters();
+	
+	for(int i=0;i<5;i++)
+		pars[i] = tmp_pars[i];	
+	
+	t_data->Fill();
+	t_data->Write();
 	
 	double fit[n];
 	for(int i=0;i<n;i++) {
 		fit[i] = f1->Eval(energy[i]);
 	}
 	TGraph *T2 = new TGraph(n,energy,fit);
-	T2->SetMarkerColor(kRed);
-	T2->SetLineColor(kRed);
-	T2->SetLineWidth(2);
-	T2->SetMarkerStyle(20);
-    T2->SetMarkerSize(0.8);
-	T2->Draw("pCsame");
-	
-	gStyle->SetStatY(0.6);
-	gStyle->SetStatX(0.9);
-	gStyle->SetStatH(0.18);
-	gStyle->SetStatW(0.18);
 
-	
+    T2->SetMarkerColor(kRed);
+    T2->SetLineColor(kRed);
+    T2->SetLineWidth(2);
+    T2->SetMarkerStyle(20);
+    T2->SetMarkerSize(0.8);
+    T2->Draw("pCsame");
+
+    gStyle->SetStatY(0.6);
+    gStyle->SetStatX(0.9);
+    gStyle->SetStatH(0.18);
+    gStyle->SetStatW(0.18);
+
+	c1->Print(Form("results/data_%i.png",seed));	
+	c1->Print(Form("results/data_%i.C",seed));	
+	c1->Write();
+	data_file->Close();
 
 	//double th_r[n]={0.961133,0.968143,0.97784,0.994842,0.997859,1.02436,1.05276};
 	////TGraph *T2 = new TGraph(n,energy,th_r);
@@ -148,4 +172,5 @@ void none_linearity_cor3(){
 	//l->AddEntry(T,"gamma energy non-linearity","l");
 	//l->AddEntry(f,"electron energy non-linearity","l");
 	//l.Draw();
+	return 0;
 }
