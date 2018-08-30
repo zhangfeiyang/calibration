@@ -48,20 +48,17 @@ double get_ratio(double *X,double *p){
 };
 
 
-int main(int argv,char **argc){
-	
-	int seed = atoi(argc[1]);
-	gRandom->SetSeed(seed);	
+void stand_linearity_cor(){
 
-    TFile *file_K40   = new TFile("/home/zhangfy/nl_target/calibration/K40_pdf.root","read");
-    TFile *file_n_H   = new TFile("/home/zhangfy/nl_target/calibration/n_H_pdf.root","read");
-    TFile *file_n_Fe  = new TFile("/home/zhangfy/nl_target/calibration/n_Fe_pdf.root","read");
-    TFile *file_n_C   = new TFile("/home/zhangfy/nl_target/calibration/n_C_pdf.root","read");
-    TFile *file_Am_C  = new TFile("/home/zhangfy/nl_target/calibration/Am_C_pdf.root","read");
-    TFile *file_Ge68  = new TFile("/home/zhangfy/nl_target/calibration/Ge68_pdf.root","read");
-    TFile *file_Cs137 = new TFile("/home/zhangfy/nl_target/calibration/Cs137_pdf.root","read");
-    TFile *file_Co60  = new TFile("/home/zhangfy/nl_target/calibration/Co60_pdf.root","read");
-    TFile *file_Mn54  = new TFile("/home/zhangfy/nl_target/calibration/Mn54_pdf.root","read");
+    TFile *file_K40   = new TFile("K40_pdf.root","read");
+    TFile *file_n_H   = new TFile("n_H_pdf.root","read");
+    TFile *file_n_Fe  = new TFile("n_Fe_pdf.root","read");
+    TFile *file_n_C   = new TFile("n_C_pdf.root","read");
+    TFile *file_Am_C  = new TFile("Am_C_pdf.root","read");
+    TFile *file_Ge68  = new TFile("Ge68_pdf.root","read");
+    TFile *file_Cs137 = new TFile("Cs137_pdf.root","read");
+    TFile *file_Co60  = new TFile("Co60_pdf.root","read");
+    TFile *file_Mn54  = new TFile("Mn54_pdf.root","read");
 
     h_K40  = (TH1D*)file_K40->Get("h1");
     h_n_H  = (TH1D*)file_n_H->Get("h1");
@@ -87,21 +84,13 @@ int main(int argv,char **argc){
 	const int n = 8;
 	double energy[n],r[n],Erec[n],eErec[n];
 	double pe[n],epe[n],sigma[n],esigma[n];
-	ifstream fin("/home/zhangfy/nl_target/calibration/data0");
+	//ifstream fin("/home/zhangfy/nl_target/calibration/data0");
+	ifstream fin("/home/zhangfy/resolution/center_v3/data0");
 	double scale = 1.3056438e3;
 	double er[n] = {0.002,0.00148852,0.00179825,0.00131434,0.00153622,0.000664956,0.000898696,0.003};
 	
 	ifstream fine("/home/zhangfy/nl_target/calibration/uncertainty");
 	double bias[n],ebias[n];
-
-	TFile *data_file = new TFile((Form("/home/zhangfy/nl_target/calibration/results/data_%i.root",seed)),"recreate");
-	TTree *t_data = new TTree("t","");
-	double pars[5];
-	double chi2;
-	t_data->Branch("pars",pars,"pars[5]/D");
-	t_data->Branch("r",r,"r[8]/D");
-	t_data->Branch("er",er,"er[8]/D");
-	t_data->Branch("chi2",&chi2,"chi2/D");
 
 	for(int i=0;i<n;i++){
 			fin>>energy[i]>>pe[i]>>epe[i]>>sigma[i]>>esigma[i];
@@ -111,62 +100,47 @@ int main(int argv,char **argc){
 				Erec[i] /= 2;
 			}
 			r[i] = Erec[i]/energy[i];
-			er[i] = eErec[i]/energy[i];
+			//er[i] = eErec[i]/energy[i];
 
 			fine>>bias[i]>>ebias[i];
 
-			r[i] *= 1 + gRandom->Gaus(bias[i],ebias[i])/100.0;
-			er[i] = TMath::Abs(r[i]*ebias[i]/100.0); 
+			//r[i] *= 1 + gRandom->Gaus(bias[i],ebias[i])/100.0;
+			//er[i] = TMath::Abs(r[i]*ebias[i]/100.0); 
 			cout<<r[i]<<"\t"<<er[i] <<endl;
 	}
-	
-	TCanvas *c1 = new TCanvas();
-	
 	TGraphErrors *T1 = new TGraphErrors(n,energy,r,0,er);
-    T1->SetMarkerStyle(20);
+	T1->SetMarkerStyle(20);
     T1->SetMarkerSize(0.8);
-    T1->SetLineWidth(2);
-    T1->SetLineColor(kBlack);
-    T1->SetMarkerColor(kBlack);
-    T1->Draw("Ap");
+	T1->SetLineWidth(2);
+	T1->SetLineColor(kBlack);
+	T1->SetMarkerColor(kBlack);
+	T1->Draw("Ap");
 
-	TF1 *f1 = new TF1("f1",get_ratio,0,7,5);
-	//f1->SetParameters(1.05,0.002,0.11,1.5);
-	//f1->SetParameters(1.043762,0.005738488,0.123178,2.46286);
-	//f1->SetParameters(1.05376,0.00277669,0.166229,3.00274);
+	TF1 *f1 = new TF1("f1",get_ratio,0,8,5);
 	f1->SetParameters(1.05412,0.0069017,0.00938879,0.170967,2.95026);
-	T1->Fit("f1","","",0,8);
-	double* tmp_pars = f1->GetParameters();
-	chi2 = f1->GetChisquare();
-	
-	for(int i=0;i<5;i++)
-		pars[i] = tmp_pars[i];	
-	
-	t_data->Fill();
-	t_data->Write();
+	T1->Fit("f1","0","",0,8);
+	ofstream fout("result");
+	double *a = f1->GetParameters();
+	fout<<a[0]<<"\t"<<a[1]<<"\t"<<a[2]<<"\t"<<a[3]<<"\t"<<a[4]<<"\n";
 	
 	double fit[n];
 	for(int i=0;i<n;i++) {
 		fit[i] = f1->Eval(energy[i]);
 	}
 	TGraph *T2 = new TGraph(n,energy,fit);
-
-    T2->SetMarkerColor(kRed);
-    T2->SetLineColor(kRed);
-    T2->SetLineWidth(2);
-    T2->SetMarkerStyle(20);
+	T2->SetMarkerColor(kRed);
+	T2->SetLineColor(kRed);
+	T2->SetLineWidth(2);
+	T2->SetMarkerStyle(20);
     T2->SetMarkerSize(0.8);
-    T2->Draw("pCsame");
+	T2->Draw("pCsame");
+	
+	gStyle->SetStatY(0.6);
+	gStyle->SetStatX(0.9);
+	gStyle->SetStatH(0.18);
+	gStyle->SetStatW(0.18);
 
-    gStyle->SetStatY(0.6);
-    gStyle->SetStatX(0.9);
-    gStyle->SetStatH(0.18);
-    gStyle->SetStatW(0.18);
-
-	c1->Print(Form("/home/zhangfy/nl_target/calibration/results/data_%i.png",seed));	
-	c1->Print(Form("/home/zhangfy/nl_target/calibration/results/data_%i.C",seed));	
-	c1->Write();
-	data_file->Close();
+	
 
 	//double th_r[n]={0.961133,0.968143,0.97784,0.994842,0.997859,1.02436,1.05276};
 	////TGraph *T2 = new TGraph(n,energy,th_r);
@@ -175,5 +149,4 @@ int main(int argv,char **argc){
 	//l->AddEntry(T,"gamma energy non-linearity","l");
 	//l->AddEntry(f,"electron energy non-linearity","l");
 	//l.Draw();
-	return 0;
 }
